@@ -9,29 +9,33 @@ from mpl_toolkits.mplot3d import Axes3D
 import models
 import cv2
 from plyfile import PlyData, PlyElement
-#from pyntcloud import PyntCloud
+import nyu2_dataset as nyu
+
+HEIGHT = 228
+WIDTH = 304
+CHANNELS = 3
+BATCH_SIZE = 1
+
+def construct_network():
+    input_node = tf.placeholder(tf.float32, shape=(None, HEIGHT, WIDTH, CHANNELS))   
+    net = models.ResNet50UpProj({'data': input_node}, BATCH_SIZE, 1, False)
+    return net, input_node
 
 
-def predict(model_data_path, image_path):
-    # Default input size
-    height = 228
-    width = 304
-    channels = 3
-    batch_size = 1
-
+def predict(model_data_path, image_path, net, input_node, prev_pred):
     # Read image
     img = Image.open(image_path)
-    img = img.resize([width,height], Image.ANTIALIAS)
+    img = img.resize([WIDTH, HEIGHT], Image.ANTIALIAS)
     img = np.array(img).astype('float32')
     img = np.expand_dims(np.asarray(img), axis = 0)
 
-    print("img",img.shape)
+    print("img_shape: ", img.shape)
 
-    # Create a placeholder for the input image
-    input_node = tf.placeholder(tf.float32, shape=(None, height, width, channels))
+    ## Create a placeholder for the input image
+    #input_node = tf.placeholder(tf.float32, shape=(None, HEIGHT, WIDTH, CHANNELS))
 
-    # Construct the network
-    net = models.ResNet50UpProj({'data': input_node}, batch_size, 1, False)
+    ## Construct the network
+    #net = models.ResNet50UpProj({'data': input_node}, BATCH_SIZE, 1, False)
 
     with tf.Session() as sess:
 
@@ -48,14 +52,20 @@ def predict(model_data_path, image_path):
         # Evalute the network for the given image
         pred = sess.run(net.get_output(), feed_dict={input_node: img})
 
-        # Plot result
-        fig = plt.figure()
-        ii = plt.imshow(pred[0,:,:,0], interpolation='nearest')
-        fig.colorbar(ii)
-        plt.show()
-        fig.savefig('depth.png', bbox_inches='tight')
+        ## Plot result
+        #fig = plt.figure()
+        #ii = plt.imshow(pred[0,:,:,0], interpolation='nearest')
+        #fig.colorbar(ii)
+        #plt.show()
+        #fig.savefig('depth.png', bbox_inches='tight')
+        
+        new_pred = pred[0,:,:,:]
+        if prev_pred is None:
+            prev_pred = new_pred
+        
+        prediction = np.median([new_pred, prev_pred], axis=0)
 
-        return img,pred
+        return img, prediction
 
 def draw_point_cloud(pred):
     # Depth Intrinsic Parameters
@@ -126,14 +136,12 @@ def read_pgm(filename):
 def metric_relative_difference(gt, pred, valid_depths):
     result = 0.0
     sum_relative_difference_total = 0.0
-    nr_valid_pixel_total = 0.0
-
-    print("VALID_DEPTHS: ", valid_depths)
+    nr_valid_pixel_total = 0.0    
 
     gt = gt.reshape(-1)
     pred = pred.reshape(-1)
     valid_depths = valid_depths.reshape(-1)
-    print("valid_depths: ", valid_depths)
+    #print("valid_depths: ", valid_depths)
 
     pred = pred * valid_depths
     target = gt * valid_depths
@@ -157,46 +165,66 @@ def main():
     parser.add_argument('model_path', help='Converted parameters for the model')
     parser.add_argument('image_paths', help='Directory of images to predict')
     args = parser.parse_args()
+ 
+    dataset = nyu.matchInputOutputPaths(args.image_paths)    
+    net, input_node = construct_network()
+    model_path = args.model_path
 
-    # Predict the image
-    rgb, pred = predict(args.model_path, args.image_paths)
-    imgDepthAbs = pred[0,:,:,:]
-    imgDepthAbs = cv2.resize(imgDepthAbs, (640,480))
-    rgb = cv2.resize(rgb[0,:,:,:], (640,480))####    
-    print(imgDepthAbs.shape)
-    [H, W] = imgDepthAbs.shape
-    print(imgDepthAbs.max(), imgDepthAbs.min())
-    print(H, W)
-    assert H == 480
-    assert W == 640
-    pred = imgDepthAbs
-    draw_point_cloud(pred)
+    total_metric = 0
+    
+    for i, sample in enumerate(dataset):
+        image_path = sample[0]
+        gt_path = sample[1]
 
-    gt_path = 'D:/Bilge/FCRN-DepthPrediction-master/tensorflow/images/d-1315108725.462695-2617891435.pgm'
-    groundTruth = read_pgm(gt_path)
+        print("image_path: ", image_path)
+        print("gt_path: ", gt_path)
 
-    depthArray = np.asarray(groundTruth)
-    depthArray = depthArray.astype('float32')
+        #if i == 0:
+        prev_pred = None
+        # Predict the image        
+        rgb, pred = predict(model_path, image_path, net, input_node, prev_pred)
+        prev_pred = pred
 
-    param1 = 351.3
-    param2 = 1092.5
-    depthArray = param1 / (param2 - depthArray)
-    depthArray[depthArray > 10.0] = np.NaN
-    depthArray[depthArray < 0.0] = np.NaN
+        imgDepthAbs = pred
+        imgDepthAbs = cv2.resize(imgDepthAbs, (640,480))
+        rgb = cv2.resize(rgb[0,:,:,:], (640,480))####    
+        print(imgDepthAbs.shape)
+        [H, W] = imgDepthAbs.shape
+        print(imgDepthAbs.max(), imgDepthAbs.min())
+        print(H, W)
+        assert H == 480
+        assert W == 640
+        pred = imgDepthAbs
+        #draw_point_cloud(pred)
+    
+        groundTruth = read_pgm(gt_path)
 
-    invalid_depths = np.isnan(depthArray)
-    valid_depths = np.logical_not(invalid_depths)
-    print("VALID_DEPTHS: ", valid_depths)
-    valid_depths = valid_depths.astype("float32")
-    #make the NaN values zero
-    depthArray[invalid_depths] = 0.0
+        depthArray = np.asarray(groundTruth)
+        depthArray = depthArray.astype('float32')
 
-    print("groundTruth.shape: ", depthArray.shape)
-    print("pred.shape: ", pred.shape)
-    print("valid_depths.shape: ", valid_depths.shape)
+        param1 = 351.3
+        param2 = 1092.5
+        depthArray = param1 / (param2 - depthArray)
+        depthArray[depthArray > 10.0] = np.NaN
+        depthArray[depthArray < 0.0] = np.NaN
 
-    metric = metric_relative_difference(depthArray, pred, valid_depths)
-    print("metric: ", metric)
+        invalid_depths = np.isnan(depthArray)
+        valid_depths = np.logical_not(invalid_depths)
+        #print("VALID_DEPTHS: ", valid_depths)
+        valid_depths = valid_depths.astype("float32")
+        #make the NaN values zero
+        depthArray[invalid_depths] = 0.0
+
+        #print("groundTruth.shape: ", depthArray.shape)
+        #print("pred.shape: ", pred.shape)
+        #print("valid_depths.shape: ", valid_depths.shape)
+
+        metric = metric_relative_difference(depthArray, pred, valid_depths)
+        print("metric: ", metric)
+        total_metric += metric
+
+    average_metric = total_metric/len(dataset)
+    print("Metric (avg): ", average_metric)
     
     os._exit(0)
 

@@ -86,22 +86,15 @@ def main():
         print("image_path: ", image_path)
         print("gt_path: ", gt_path)
 
-        #if i == 0:
-        prev_pred = None
+        if i == 0:
+            prev_pred = None
         # Predict the image        
         rgb, pred = predict(model_path, image_path, net, input_node, prev_pred)
         prev_pred = pred
 
-        imgDepthAbs = pred
-        imgDepthAbs = cv2.resize(imgDepthAbs, (640,480))
-        rgb = cv2.resize(rgb[0,:,:,:], (640,480))####    
-        print(imgDepthAbs.shape)
-        [H, W] = imgDepthAbs.shape
-        print(imgDepthAbs.max(), imgDepthAbs.min())
-        print(H, W)
-        assert H == 480
-        assert W == 640
-        pred = imgDepthAbs
+        H = 480
+        W = 640
+        pred = cv2.resize(pred, (W, H))
         #pc.create_point_cloud(pred)
     
         groundTruth = pc.read_pgm(gt_path)

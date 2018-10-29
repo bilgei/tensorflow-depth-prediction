@@ -1,44 +1,55 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Jun 16 13:37:18 2018
-
-@author: bilgei
-"""
 import os
 import numpy as np
 from PIL import Image
-#import cv2
 from plyfile import PlyData, PlyElement
 
 HEIGHT = 480
 WIDTH = 640
 
-def create_point_cloud(depth):    
+def create_point_cloud(depth):
+    # Depth Intrinsic Parameters
     fx_d = 5.8262448167737955e+02
     fy_d = 5.8269103270988637e+02
     cx_d = 3.1304475870804731e+02
     cy_d = 2.3844389626620386e+02
-    
-    #imgDepthAbs = cv2.resize(depth, (640,480))
-    #print("imgDepthAbs.shape:", imgDepthAbs.shape)
-    #[H, W] = imgDepthAbs.shape
-    #print(imgDepthAbs.max(), imgDepthAbs.min())
-    #print(H, W)
-    #assert H == 480
-    #assert W == 640
 
     [xx, yy] = np.meshgrid(range(0, WIDTH), range(0, HEIGHT))
     X = (xx - cx_d) * depth / fx_d
     Y = (yy - cy_d) * depth / fy_d
     Z = depth
-    
+
+    #fig = plt.figure()
+    #ax = fig.add_subplot(111, projection='3d')
+    ## defined by x in [23, 32], y in [0, 100], z in [zlow, zhigh].
+    #for c, m, zlow, zhigh in [('r', 'o', -50, -25)]:
+    #    ax.scatter(X.flatten(), Y.flatten(), Z.flatten(), c=Z.flatten(), cmap=plt.cm.coolwarm, marker=m)
+
+    #ax.set_xlabel('X Label')
+    #ax.set_ylabel('Y Label')
+    #ax.set_zlabel('Z Label')            
+    #plt.show()
+
     points = np.array([X.flatten(), Y.flatten(), Z.flatten()]).transpose()
     points = [tuple(x) for x in points]
     vertex = np.array(points, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
     print("Vertex shape: ", vertex.shape)
-    
+    #vertex_color = np.array(Z.flatten(), dtype=[('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
+
+    #n = len(vertex)
+    #vertex_all = np.empty(n, vertex.dtype.descr + vertex_color.dtype.descr)
+
+    #for prop in vertex.dtype.names:
+    #    vertex_all[prop] = vertex[prop]
+
+    #for prop in vertex_color.dtype.names:
+    #    vertex_all[prop] = vertex_color[prop]
+
+    #ply = PlyData([PlyElement.describe(vertex_all, 'vertex')], text=True)
+
     ply = PlyData([PlyElement.describe(vertex, 'vertex')], text=True)
-    ply.write('GT_pointcloud.ply')               
+
+    ply.write('GT_pointcloud.ply')
+              
 
 def read_pgm(filename):
     """Return image data from a raw PGM file as numpy array.

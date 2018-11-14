@@ -18,6 +18,7 @@ def create_point_cloud(depth):
     Y = (yy - cy_d) * depth / fy_d
     Z = depth
 
+    #show
     #fig = plt.figure()
     #ax = fig.add_subplot(111, projection='3d')
     ## defined by x in [23, 32], y in [0, 100], z in [zlow, zhigh].
@@ -61,7 +62,8 @@ def read_pgm(filename):
         #print header
         ximg = np.fromfile(infile, dtype=np.uint16).reshape((height, width))
         return ximg
-    
+
+#test
 def main():
     image_path = 'D:/Bilge/FCRN-DepthPrediction-master/tensorflow/images/d-1315108725.462695-2617891435.pgm'
 

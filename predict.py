@@ -33,7 +33,7 @@ def predict(model_data_path, image_path, net, input_node, prev_pred):
     img = np.array(img).astype('float32')
     img = np.expand_dims(np.asarray(img), axis = 0)
 
-    print("img_shape: ", img.shape)
+    print("img_shape after: ", img.shape)
 
     with tf.Session() as sess:
 
@@ -49,19 +49,23 @@ def predict(model_data_path, image_path, net, input_node, prev_pred):
 
         # Evalute the network for the given image
         pred = sess.run(net.get_output(), feed_dict={input_node: img})
-
-        ## Plot result
-        #fig = plt.figure()
-        #ii = plt.imshow(pred[0,:,:,0], interpolation='nearest')
-        #fig.colorbar(ii)
-        #plt.show()
-        #fig.savefig('depth.png', bbox_inches='tight')
         
-        new_pred = pred[0,:,:,:]
+        # print("pred1: ", pred[:,0,0,0])
+        # print("pred4: ", pred[0,0,0,:])
+
+        new_pred = pred[0,:,:,0]
         if prev_pred is None:
             prev_pred = new_pred
-        
-        prediction = np.median([new_pred, prev_pred], axis=0)
+
+        prediction = (np.array(new_pred) + np.array(prev_pred)) / 2
+        print("prediction shape: ", prediction.shape)
+
+        # # Plot result
+        # fig = plt.figure()
+        # ii = plt.imshow(prediction, interpolation='nearest')
+        # fig.colorbar(ii)
+        # plt.show()
+        # #fig.savefig('depth.png', bbox_inches='tight')
 
         return img, prediction
 
@@ -77,26 +81,37 @@ def main():
     net, input_node = construct_network()
     model_path = args.model_path
 
-    total_metric = 0
+    total_RMSE_linear = 0
+    total_RMSE_log = 0
+    total_squared_relative_difference = 0
+    total_abs_relative_difference = 0
+    calculated_image_no = 0
     
     for i, sample in enumerate(dataset):
+        if i == 0:
+            prev_pred = None
+
         image_path = sample[0]
         gt_path = sample[1]
 
         print("image_path: ", image_path)
         print("gt_path: ", gt_path)
 
-        if i == 0:
-            prev_pred = None
         # Predict the image        
         rgb, pred = predict(model_path, image_path, net, input_node, prev_pred)
         prev_pred = pred
+
+        if i == len(dataset) - 1:
+            fig = plt.figure()
+            ii = plt.imshow(pred, interpolation='nearest')
+            fig.colorbar(ii)
+            plt.show()
 
         H = 480
         W = 640
         pred = cv2.resize(pred, (W, H))
         #pc.create_point_cloud(pred)
-    
+
         groundTruth = pc.read_pgm(gt_path)
 
         depthArray = np.asarray(groundTruth)
@@ -108,6 +123,11 @@ def main():
         depthArray[depthArray > 10.0] = np.NaN
         depthArray[depthArray < 0.0] = np.NaN
 
+        # fig = plt.figure()
+        # ii = plt.imshow(depthArray, interpolation='nearest')
+        # fig.colorbar(ii)
+        # plt.show()
+
         invalid_depths = np.isnan(depthArray)
         valid_depths = np.logical_not(invalid_depths)
         #print("VALID_DEPTHS: ", valid_depths)
@@ -115,16 +135,38 @@ def main():
         #make the NaN values zero
         depthArray[invalid_depths] = 0.0
 
-        #print("groundTruth.shape: ", depthArray.shape)
-        #print("pred.shape: ", pred.shape)
-        #print("valid_depths.shape: ", valid_depths.shape)
+        # fig = plt.figure()
+        # ii = plt.imshow(depthArray, interpolation='nearest')
+        # fig.colorbar(ii)
+        # plt.show()
 
-        metric = losses.metric_relative_difference(depthArray, pred, valid_depths)
-        print("metric: ", metric)
-        total_metric += metric
+        RMSE_linear = losses.metric_RMSE(depthArray, pred, valid_depths, "linear")
+        print("RMSE (linear): ", RMSE_linear)
+        total_RMSE_linear += RMSE_linear
 
-    average_metric = total_metric/len(dataset)
-    print("Metric (avg): ", average_metric)
+        RMSE_log = losses.metric_RMSE(depthArray, pred, valid_depths, "log")
+        print("RMSE (log): ", RMSE_log)
+        total_RMSE_log += RMSE_log
+
+        squared_relative_difference = losses.relative_difference_metric(depthArray, pred, valid_depths, "squared")
+        print("squared_relative_difference: ", squared_relative_difference)
+        total_squared_relative_difference += squared_relative_difference
+
+        abs_relative_difference = losses.relative_difference_metric(depthArray, pred, valid_depths, "abs")
+        print("abs_relative_difference: ", abs_relative_difference)
+        total_abs_relative_difference += abs_relative_difference
+
+        calculated_image_no += 1
+
+    average_RMSE_linear = total_RMSE_linear / calculated_image_no
+    print("---------- RMSE Linear (avg): ", average_RMSE_linear)
+    average_RMSE_log = total_RMSE_log / calculated_image_no
+    print("---------- RMSE Log (avg): ", average_RMSE_log)
+    average_squared_relative_difference = total_squared_relative_difference / calculated_image_no
+    print("---------- squared_relative_difference (avg): ", average_squared_relative_difference)
+    average_abs_relative_difference = total_abs_relative_difference / calculated_image_no
+    print("---------- abs_relative_difference (avg): ", average_abs_relative_difference)
+
     
     os._exit(0)
 

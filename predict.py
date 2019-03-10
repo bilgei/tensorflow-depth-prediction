@@ -68,6 +68,10 @@ def predict(model_data_path, image_path, net, input_node, prev_rgb, prev_pred):
         return img, prediction
 
 def main():
+    log_path = "logs.txt"
+    print(os.path.isdir(log_path))
+    log_file = open(log_path,'w')    
+    
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('model_path', help='Converted parameters for the model')
@@ -83,6 +87,9 @@ def main():
     total_RMSE_log = 0
     total_abs_relative_difference = 0
     calculated_image_no = 0
+    
+    results_path = 'results.txt'
+    results_file = open(results_path,'w')
     
     for i, sample in enumerate(dataset):
         if i == 0:
@@ -131,16 +138,20 @@ def main():
 
         RMSE_linear = losses.metric_RMSE(depthArray, pred, valid_depths, "linear")
         print("RMSE (linear): ", RMSE_linear)
+        log_file.write("RMSE (linear): ", RMSE_linear)
         total_RMSE_linear += RMSE_linear
 
         RMSE_log = losses.metric_RMSE(depthArray, pred, valid_depths, "log")
         print("RMSE (log): ", RMSE_log)
+        log_file.write("RMSE (log): ", RMSE_log)
         total_RMSE_log += RMSE_log
 
         abs_relative_difference = losses.relative_difference_metric(depthArray, pred, valid_depths, "abs")
         print("abs_relative_difference: ", abs_relative_difference)
+        log_file.write("abs_relative_difference: ", abs_relative_difference)
         total_abs_relative_difference += abs_relative_difference
 
+        log_file.write("")
         calculated_image_no += 1
 
     average_RMSE_linear = total_RMSE_linear / calculated_image_no
@@ -149,6 +160,14 @@ def main():
     print("---------- RMSE Log (avg): ", average_RMSE_log)
     average_abs_relative_difference = total_abs_relative_difference / calculated_image_no
     print("---------- abs_relative_difference (avg): ", average_abs_relative_difference)
+    
+    results_file.write("Averageing Results:")
+    results_file.write("---------- RMSE Linear (avg): ", average_RMSE_linear)
+    results_file.write("---------- RMSE Log (avg): ", average_RMSE_log)
+    results_file.write("---------- abs_relative_difference (avg): ", average_abs_relative_difference)
+    results_file.close()
+
+    log_file.close()
     
     os._exit(0)
 

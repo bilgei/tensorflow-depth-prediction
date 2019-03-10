@@ -101,6 +101,8 @@ def main():
 
         print("image_path: ", image_path)
         print("gt_path: ", gt_path)
+        log_file.write("image_path: " + image_path)
+        log_file.write("gt_path: " + gt_path)
 
         # Predict the image        
         rgb, pred = predict(model_path, image_path, net, input_node, prev_rgb, prev_pred)
@@ -138,17 +140,17 @@ def main():
 
         RMSE_linear = losses.metric_RMSE(depthArray, pred, valid_depths, "linear")
         print("RMSE (linear): ", RMSE_linear)
-        log_file.write("RMSE (linear): ", RMSE_linear)
+        log_file.write("RMSE (linear): " + str(RMSE_linear))
         total_RMSE_linear += RMSE_linear
 
         RMSE_log = losses.metric_RMSE(depthArray, pred, valid_depths, "log")
         print("RMSE (log): ", RMSE_log)
-        log_file.write("RMSE (log): ", RMSE_log)
+        log_file.write("RMSE (log): " + str(RMSE_log))
         total_RMSE_log += RMSE_log
 
         abs_relative_difference = losses.relative_difference_metric(depthArray, pred, valid_depths, "abs")
         print("abs_relative_difference: ", abs_relative_difference)
-        log_file.write("abs_relative_difference: ", abs_relative_difference)
+        log_file.write("abs_relative_difference: " + str(abs_relative_difference))
         total_abs_relative_difference += abs_relative_difference
 
         log_file.write("")
@@ -162,9 +164,9 @@ def main():
     print("---------- abs_relative_difference (avg): ", average_abs_relative_difference)
     
     results_file.write("Averageing Results:")
-    results_file.write("---------- RMSE Linear (avg): ", average_RMSE_linear)
-    results_file.write("---------- RMSE Log (avg): ", average_RMSE_log)
-    results_file.write("---------- abs_relative_difference (avg): ", average_abs_relative_difference)
+    results_file.write("---------- RMSE Linear (avg): " + str(average_RMSE_linear))
+    results_file.write("---------- RMSE Log (avg): " + str(average_RMSE_log))
+    results_file.write("---------- abs_relative_difference (avg): " + str(average_abs_relative_difference))
     results_file.close()
 
     log_file.close()

@@ -5,12 +5,9 @@ import tensorflow as tf
 from PIL import Image
 import matplotlib.pyplot as plt
 import models
-import cv2
 import pointcloudfromdepth as pc
 import nyu2_dataset as nyu
 import losses
-import bob.ip.optflow.liu
-import bob.ip.color
 
 HEIGHT = 228
 WIDTH = 304
@@ -23,11 +20,6 @@ def construct_network():
     ## Construct the network  
     net = models.ResNet50UpProj({'data': input_node}, BATCH_SIZE, 1, False)
     return net, input_node
-
-def optFlow_fun(img1, img2):
-    (u, v, warped) = bob.ip.optflow.liu.sor.flow(img1, img2)
-    #(u, v, warped) = bob.ip.optflow.liu.cg.flow(img1, img2)
-    return (u, v, warped)
     
 def displayImage(image, title):
     plt.imshow(image)#, cmap='gray')
@@ -69,7 +61,6 @@ def predict(model_data_path, image_path, net, input_node, prev_rgb, prev_pred):
 
 def main():
     log_path = "logs.txt"
-    print(os.path.isdir(log_path))
     log_file = open(log_path,'w')    
     
     # Parse arguments

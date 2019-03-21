@@ -5,6 +5,7 @@ import tensorflow as tf
 from PIL import Image
 import matplotlib.pyplot as plt
 import models
+import cv2
 import pointcloudfromdepth as pc
 import nyu2_dataset as nyu
 import losses
